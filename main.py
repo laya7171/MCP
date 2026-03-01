@@ -20,7 +20,6 @@ def init_db():
                 note TEXT DEFAULT ''
             )
         """)
-
 init_db()
 
 @mcp.tool
