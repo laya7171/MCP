@@ -1,81 +1,36 @@
+from __future__ import annotations
 from fastmcp import FastMCP
-import random
-import sqlite3
-import os
-from pydantic import BaseModel
 
-mcp = FastMCP("Expense tracker")
-
-db_path = os.path.join(os.path.dirname(__file__), "mcp.db")
-
-def init_db():
-    with sqlite3.connect(db_path) as c:
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS expenses(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT NOT NULL,
-                amount REAL NOT NULL,
-                category TEXT NOT NULL,
-                subcategory TEXT DEFAULT '',
-                note TEXT DEFAULT ''
-            )
-        """)
-init_db()
+mcp = FastMCP("Arith")
 
 @mcp.tool
-def add_expense(date, amount, category, subcategory="", note=""):
-    '''Add a new expense entry to the database.'''
-    with sqlite3.connect(db_path) as c:
-        cur = c.execute(
-            "INSERT INTO expenses(date, amount, category, subcategory, note) VALUES (?,?,?,?,?)",
-            (date, amount, category, subcategory, note)
-        )
-        return {"status": "ok", "id": cur.lastrowid}
+def _as_number(x):
+    if isinstance(x, (int, float)):
+        return float(x)
+    if isinstance(x, str):
+        return float(x)
     
-@mcp.tool()
-def list_expenses(start_date, end_date):
-    '''List expense entries within an inclusive date range.'''
-    with sqlite3.connect(db_path) as c:
-        cur = c.execute(
-            """
-            SELECT id, date, amount, category, subcategory, note
-            FROM expenses
-            WHERE date BETWEEN ? AND ?
-            ORDER BY id ASC
-            """,
-            (start_date, end_date)
-        )
-        cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, r)) for r in cur.fetchall()]
+    raise ValueError("Expected a number (int/float/str) or numeric string")
 
-@mcp.tool()
-def summarize(start_date, end_date, category=None):
-    '''Summarize expenses by category within an inclusive date range.'''
-    with sqlite3.connect(db_path) as c:
-        query = (
-            """
-            SELECT category, SUM(amount) AS total_amount
-            FROM expenses
-            WHERE date BETWEEN ? AND ?
-            """
-        )
-        params = [start_date, end_date]
+@mcp.tool
+async def add(a: float, b: float)->float:
+    """Returns the sum of a and b"""
 
-        if category:
-            query += " AND category = ?"
-            params.append(category)
+    return _as_number(a) + _as_number(b)
 
-        query += " GROUP BY category ORDER BY category ASC"
+@mcp.tool
+async def subtract(a: float, b: float)->float:
+    """Returns the difference of a and b"""
 
-        cur = c.execute(query, params)
-        cols = [d[0] for d in cur.description]
-        return [dict(zip(cols, r)) for r in cur.fetchall()]
+    return _as_number(a) - _as_number(b)
 
-@mcp.resource("expense://categories", mime_type="application/json")
-def categories():
-    # Read fresh each time so you can edit the file without restarting
-    with open(os.path.join(os.path.dirname(__file__), "categories.json"), "r", encoding="utf-8") as f:
-        return f.read()
+@mcp.tool 
+def multiply(a: float, b: float)->float:
+    """Returns the product of a and b"""
+
+    return _as_number(a) * _as_number(b)
 
 if __name__ == "__main__":
     mcp.run()
+    
+
